@@ -88,4 +88,3 @@ All dataset sources are publicly licensed and credited to UNSW Canberra Cyber.
 ## Author
 
 Nick DeVeau  
-`AI-Based Network Security Researcher`
