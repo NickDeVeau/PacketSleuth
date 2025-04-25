@@ -1,0 +1,13 @@
+cat <<'EOF' > .gitignore
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+
+# --- PacketSleuth data ---
+data/*.pcap
+
+# --- macOS / editors ---
+.DS_Store
+.vscode/
+EOF
