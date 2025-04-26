@@ -120,18 +120,6 @@ python src/ai/live_detect.py
 
 ---
 
-## 11 . Demo-video flow (2 min 30 s)
-
-1. `make capture-normal` → file saved.  
-2. `make attack` (terminal 1) + victim browses HTTP.  
-3. `make capture-attack` (terminal 2) → second PCAP saved.  
-4. Build dataset + train TinyBERT (fast forward in video).  
-5. Run `live_detect.py`, type sample inputs, show **NORMAL / ATTACK** prints.  
-6. Stop Ettercap → `make defend` → load `https://localhost:4443`.  
-7. Run `make pin-client` → show *certificate matches*.
-
----
-
 ### Author
 
 Nick Deveau · 2025
