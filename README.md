@@ -1,17 +1,17 @@
 # PacketSleuth
 
-🔎 A complete MITM attack + defense + AI detection system.
+🔎 Full MITM attack, prevention, and AI detection system.
 
 ---
 
 ## Features
 
-- Capture real packets (tshark)
-- Perform MITM attack (Ettercap: ARP poisoning + sslstrip prep)
-- Defend with HSTS (Flask HTTPS server)
-- Detect MITM via SSL pinning (Python client)
-- Train TinyBERT model on packet flows (HuggingFace)
-- Live classify packets as "normal" or "attack"
+- Capture real network traffic (tshark)
+- Perform MITM attack (Ettercap ARP poisoning)
+- Enforce HTTPS protection (Flask server with HSTS headers)
+- Detect forged certificates (SSL pinning client)
+- Train TinyBERT model on packets (HuggingFace Transformers)
+- Live predict malicious vs normal traffic
 
 ---
 
@@ -20,72 +20,143 @@
 ```
 PacketSleuth/
 ├── src/
-│   ├── capture/          # Packet recording (tshark wrapper)
-│   ├── attack/           # Ettercap MITM runner scripts
-│   ├── defense/          # Flask server + SSL pinning client
-│   └── ai/               # Dataset builder, trainer, live detection
-├── data/                 # .pcap captures and jsonl files
-├── models/               # (ignored) trained TinyBERT model
-├── certs/                # Self-signed certs for HTTPS
-├── requirements.txt
+│   ├── capture/          # tshark recording
+│   ├── attack/           # Ettercap scripts
+│   ├── defense/          # HSTS Flask server & SSL pinning client
+│   └── ai/               # Dataset creation, training, live detection
+├── data/                 # .pcap captures + jsonl data
+├── models/               # (ignored) trained models
+├── certs/                # self-signed HTTPS certs
 ├── Makefile
+├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Usage
-
-### Setup
+## Setup (One-time)
 
 ```bash
-# clone
-git clone <repo>
+# 1. Clone repo
+git clone <your_repo_url> PacketSleuth
 cd PacketSleuth
 
-# create venv
+# 2. Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# install deps
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Install system tools (Wireshark + Ettercap + Burp Suite)
 brew install wireshark ettercap burp-suite-community
 ```
 
+🔵 **Note:** Accept permission prompts for packet capture if Wireshark asks.
+
 ---
 
-### Run Targets
+## Usage (Development & Testing)
+
+### Traffic Capture
 
 ```bash
-make capture       # record clean traffic (baseline)
-make attack        # run Ettercap MITM (edit victim IP first)
-make defend        # launch HTTPS+HSTS server
-make pin-client    # SSL pinning client connects
+make capture
+```
+- Captures 10 seconds of live traffic from interface `en0`.
+- Saved as `data/YYYYMMDD_HHMMSS.pcap`.
+
+🔵 May require `sudo` if not a member of `access_bpf` group.
+
+---
+
+### MITM Attack (ARP Poisoning)
+
+```bash
+# Edit victim IP manually inside src/attack/run_ettercap.sh
+make attack
+```
+- Launches Ettercap in ARP poisoning mode.
+- Victim traffic will relay through attacker (your Mac).
+
+---
+
+### Defense Server (HTTPS + HSTS)
+
+```bash
+make defend
+```
+- Runs Flask HTTPS server at `https://localhost:4443`.
+- Forces HSTS headers to block HTTPS downgrade.
+
+Visit:
+```
+https://localhost:4443
+```
+🔵 Browser will warn about "Self-signed Certificate" — expected.
+
+---
+
+### SSL Pinning Client
+
+```bash
+make pin-client
+```
+- Connects to server, verifies SSL certificate fingerprint.
+- Rejects altered/fake certificates (MITM prevention).
+
+---
+
+## AI Pipeline (Training + Live Prediction)
+
+### Step 1: Build JSONL Dataset from PCAP
+
+```bash
+python src/ai/build_dataset.py <path-to-pcap> <label> <output-jsonl>
+```
+Example:
+
+```bash
+python src/ai/build_dataset.py data/20250425_XXXXXX.pcap normal data/jsonl/normal.jsonl
+python src/ai/build_dataset.py data/ettercap_session.pcap attack data/jsonl/attack.jsonl
 ```
 
 ---
 
-### AI Pipeline
+### Step 2: Train TinyBERT Model
 
 ```bash
-# create JSONL dataset
-python src/ai/build_dataset.py <path-to-pcap> <label> <output.jsonl>
-
-# train TinyBERT
 python src/ai/train.py
+```
+- Fine-tunes TinyBERT on your packet data.
+- Saves model into `models/tinybert-pkt/` (ignored by git).
 
-# live packet detection
+---
+
+### Step 3: Live Predict Packet Flows
+
+```bash
 python src/ai/live_detect.py
+```
+- Manually type `src dst proto len`
+- Model predicts `NORMAL` or `ATTACK`.
+
+Example:
+
+```
+192.168.1.5 192.168.1.1 TCP 60
 ```
 
 ---
 
 ## Notes
 
-- No VMs needed — native macOS
-- After MITM starts, intercepted credentials can be seen via Burp Suite Proxy
-- Defense server forces HSTS headers to block downgrade attacks
-- SSL pinning client refuses to connect if a fake cert is injected
+- Everything runs **natively** on macOS — **no VMs** needed.
+- Ettercap traffic can be viewed via Burp Suite proxy (port 8080).
+- If no packets are captured, check correct interface with:
+  ```bash
+  tshark -D
+  ```
 
 ---
 
@@ -93,3 +164,29 @@ python src/ai/live_detect.py
 
 Nick Deveau — 2025
 ```
+
+---
+
+✅ **Clear, precise, actionable.**
+
+### 📋 Commands now cover:
+
+- Clone
+- venv
+- pip install
+- brew install
+- make capture/attack/defend/pin-client
+- pcap parsing
+- TinyBERT training
+- Live packet detection
+
+---
+
+### 📥 After copy-pasting:
+
+```bash
+git add README.md
+git commit -m "docs: finalized README with full step-by-step commands"
+git push
+```
+
