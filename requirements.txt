@@ -6,3 +6,4 @@ pandas
 datasets
 torch
 transformers
+accelerate
