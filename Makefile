@@ -2,9 +2,11 @@
 
 .PHONY: capture attack defend pin-client
 
-capture:
-	@echo "[*] Starting 10-second capture on en0..."
-	sudo python src/capture/record.py 10 en0
+capture-normal:
+	python src/capture/record.py 10 en0 normal
+
+capture-attack:
+	python src/capture/record.py 10 en0 attack
 
 attack:
 	@echo "[*] Launching Ettercap MITM attack..."

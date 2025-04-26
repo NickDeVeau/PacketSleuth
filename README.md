@@ -1,163 +1,152 @@
-# PacketSleuth
+# PacketSleuth  
+Man-in-the-Middle attack · counter-measures · AI-based traffic detection
+-----------------------------------------------------------------------
 
-Man-in-the-Middle Attack, Defense, and AI Detection System
-
----
-
-## Overview
-
-PacketSleuth captures network traffic, simulates MITM attacks, implements countermeasures, and uses a lightweight AI model to classify traffic as normal or malicious.
+## 1 . Project Overview
+PacketSleuth captures network packets, demonstrates an Ettercap MITM attack, blocks it with HSTS + SSL pinning, then trains a TinyBERT model to label traffic as **NORMAL** vs **ATTACK**.
 
 ---
 
-## Project Structure
-
+## 2 . Repository Layout
 ```
 PacketSleuth/
 ├── src/
-│   ├── capture/        # Packet recording (tshark wrapper)
-│   ├── attack/         # Ettercap MITM scripts
-│   ├── defense/        # HSTS Flask server and SSL pinning client
-│   └── ai/             # Dataset builder, TinyBERT trainer, live detection
-├── data/               # PCAP and JSONL data
-├── certs/              # Self-signed HTTPS certs
-├── models/             # (ignored) trained models
-├── Makefile
+│   ├── capture/        # tshark recorder
+│   ├── attack/         # Ettercap runner + helpers
+│   ├── defense/        # Flask HTTPS server + pinning client
+│   └── ai/             # dataset builder, TinyBERT trainer, live detect
+├── data/               # PCAP & JSONL files
+├── certs/              # self-signed HTTPS certs
+├── models/             # (git-ignored) trained models
+├── Makefile            # one-touch commands
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Setup Instructions
-
-1. Clone the repository:
+## 3 . Quick Setup (macOS)
 
 ```bash
-git clone <your_repo_url> PacketSleuth
+git clone <repo> PacketSleuth
 cd PacketSleuth
-```
-
-2. Create and activate a Python virtual environment:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-3. Install Python dependencies:
-
-```bash
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-4. Install system dependencies (macOS only):
-
-```bash
 brew install wireshark ettercap burp-suite-community
 ```
 
----
-
-## How to Capture Traffic
-
-### Capturing Normal Traffic (no attack)
-
-```bash
-make capture
-```
-- Captures 10 seconds of normal traffic from interface `en0`.
-- Save the `.pcap` file for training as a "normal" example.
-
-**Note:**  
-If no packets are captured, use `tshark -D` to verify the correct interface.
+> **Tip :** if Wireshark asks about `ChmodBPF`, choose **YES** so you can capture without `sudo`.
 
 ---
 
-### Capturing Attack Traffic (MITM)
+## 4 . Capturing Traffic
 
-1. Edit victim IP manually inside `src/attack/run_ettercap.sh` if needed.
-
-2. Launch Ettercap attack:
+### 4 .1 Normal (clean) traffic
 
 ```bash
-make attack
+make capture-normal          # 10 s capture → data/normal_<ts>.pcap
 ```
-- Runs ARP poisoning between victim and gateway.
-- Traffic will flow through your machine.
-- Save the resulting `ettercap_session.pcap` for training as an "attack" example.
+
+*During those 10 seconds, browse* `https://example.com` *on **your Mac**.*
+
+### 4 .2 Attack (poisoned) traffic
+
+```bash
+make attack                  # terminal 1 – start Ettercap (leave running)
+
+# Victim device: browse http://neverssl.com  (plain HTTP)
+make capture-attack          # terminal 2 – 10 s capture → data/attack_<ts>.pcap
+```
 
 ---
 
-## How to Train the AI Model
-
-1. Convert PCAP files to JSONL format:
+## 5 . Building the AI Dataset
 
 ```bash
-python src/ai/build_dataset.py data/<normal_capture>.pcap normal data/jsonl/normal.jsonl
-python src/ai/build_dataset.py data/<attack_capture>.pcap attack data/jsonl/attack.jsonl
+mkdir -p data/jsonl
+python src/ai/build_dataset.py data/normal_*.pcap normal  data/jsonl/normal.jsonl
+python src/ai/build_dataset.py data/attack_*.pcap attack  data/jsonl/attack.jsonl
 ```
-
-2. Train TinyBERT model:
-
-```bash
-python src/ai/train.py
-```
-- Model will be saved under `models/tinybert-pkt/`.
 
 ---
 
-## How to Test and Predict
+## 6 . Training TinyBERT
 
-1. Run live packet detection manually:
+```bash
+python src/ai/train.py       # ~1–2 min on CPU
+```
+
+Model saved to `models/tinybert-pkt/` (ignored by git).
+
+---
+
+## 7 . Live Packet Classification
 
 ```bash
 python src/ai/live_detect.py
 ```
 
-2. Enter packet information manually when prompted:
+| Example input (`src dst proto len`) | Expected output |
+|-------------------------------------|-----------------|
+| `192.168.1.76 192.168.1.1 TCP 60`   | **NORMAL** |
+| `10.0.0.5 224.0.0.251 UDP 93`       | **ATTACK** |
+| `192.168.1.231 192.168.1.254 TCP 512` | **ATTACK** |
+| `192.168.1.76 192.168.1.1 TCP 52`   | **NORMAL** |
 
-Example:
+*(These mimic patterns the model saw during training; use them during your demo.)*
 
-```
-192.168.1.5 192.168.1.1 TCP 60
-```
-
-3. The model will classify the packet as either "NORMAL" or "ATTACK".
-
----
-
-## Defense Scripts
-
-### Launch HTTPS + HSTS Server
-
-```bash
-make defend
-```
-- Runs Flask HTTPS server on `https://localhost:4443`.
-- Forces HSTS headers to prevent HTTPS downgrade attacks.
+Type `q` to quit the live prompt.
 
 ---
 
-### Run SSL Pinning Client
+## 8 . Defense Components
 
-```bash
-make pin-client
-```
-- Connects to the server and checks SSL certificate fingerprint.
-- Refuses connection if the certificate is altered (MITM protection).
-
----
-
-## Notes
-
-- Capturing packets (`make capture`) may require `sudo` privileges depending on system configuration.
-- Make sure to open traffic in Wireshark or Burp Suite if you want to manually inspect MITM results.
-- All commands assume you are inside an activated `.venv`.
+| Command | Description |
+|---------|-------------|
+| `make defend`      | Launch Flask HTTPS server on `https://localhost:4443` (sends HSTS). |
+| `make pin-client`  | Client connects and checks SHA-256 cert fingerprint. <br>Outputs **“Certificate matches”** (normal) or **warning** (fake cert / MITM). |
 
 ---
 
-## Author
+## 9 . MITM Attack Controls
 
-Nick Deveau — 2025
+| Command | Description |
+|---------|-------------|
+| `make attack` | Ettercap ARP-poisons `<victim IP>` ↔ gateway and logs to `data/ettercap_session.pcap`. <br>Press **`v`** inside Ettercap to cycle visual modes; press **Space** to pause/resume; **q** to quit. |
+
+> **How do I know the attack is active?**  
+> Ettercap prints **“ARP poisoning victims”** followed by both IPs and begins showing UDP/TCP events.  
+> Optionally open Wireshark on `en0` to see ARP replies flooding the LAN.
+
+---
+
+## 10 . Makefile Targets (complete list)
+
+| Target | Action |
+|--------|--------|
+| `make capture-normal` | record 10 s clean traffic |
+| `make capture-attack` | record 10 s while MITM is running |
+| `make attack` | run Ettercap (needs victim IP inside script) |
+| `make defend` | start HTTPS + HSTS server |
+| `make pin-client` | run SSL-pinning check |
+
+---
+
+## 11 . Demo-video flow (2 min 30 s)
+
+1. `make capture-normal` → file saved.  
+2. `make attack` (terminal 1) + victim browses HTTP.  
+3. `make capture-attack` (terminal 2) → second PCAP saved.  
+4. Build dataset + train TinyBERT (fast forward in video).  
+5. Run `live_detect.py`, type sample inputs, show **NORMAL / ATTACK** prints.  
+6. Stop Ettercap → `make defend` → load `https://localhost:4443`.  
+7. Run `make pin-client` → show *certificate matches*.
+
+---
+
+### Author
+
+Nick Deveau · 2025
 ```
+
+
