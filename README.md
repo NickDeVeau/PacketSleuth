@@ -44,7 +44,7 @@ brew install wireshark ettercap burp-suite-community
 ### 4 .1 Normal (clean) traffic
 
 ```bash
-make capture-normal          # 10 s capture → data/normal_<ts>.pcap
+sudo make capture-normal          # 10 s capture → data/normal_<ts>.pcap
 ```
 
 *During those 10 seconds, browse* `https://example.com` *on **your Mac**.*
@@ -52,10 +52,10 @@ make capture-normal          # 10 s capture → data/normal_<ts>.pcap
 ### 4 .2 Attack (poisoned) traffic
 
 ```bash
-make attack                  # terminal 1 – start Ettercap (leave running)
+sudo make attack
 
 # Victim device: browse http://neverssl.com  (plain HTTP)
-make capture-attack          # terminal 2 – 10 s capture → data/attack_<ts>.pcap
+sudo make capture-attack 
 ```
 
 ---
@@ -63,9 +63,8 @@ make capture-attack          # terminal 2 – 10 s capture → data/attack_<ts>.
 ## 5 . Building the AI Dataset
 
 ```bash
-mkdir -p data/jsonl
-python src/ai/build_dataset.py data/normal_*.pcap normal  data/jsonl/normal.jsonl
-python src/ai/build_dataset.py data/attack_*.pcap attack  data/jsonl/attack.jsonl
+sudo python src/ai/build_dataset.py data/normal.pcap normal  data/jsonl/normal.jsonl
+sudo python src/ai/build_dataset.py data/attack.pcap attack  data/jsonl/attack.jsonl
 ```
 
 ---
@@ -73,7 +72,7 @@ python src/ai/build_dataset.py data/attack_*.pcap attack  data/jsonl/attack.json
 ## 6 . Training TinyBERT
 
 ```bash
-python src/ai/train.py       # ~1–2 min on CPU
+sudo python src/ai/train.py
 ```
 
 Model saved to `models/tinybert-pkt/` (ignored by git).
@@ -85,17 +84,6 @@ Model saved to `models/tinybert-pkt/` (ignored by git).
 ```bash
 python src/ai/live_detect.py
 ```
-
-| Example input (`src dst proto len`) | Expected output |
-|-------------------------------------|-----------------|
-| `192.168.1.76 192.168.1.1 TCP 60`   | **NORMAL** |
-| `10.0.0.5 224.0.0.251 UDP 93`       | **ATTACK** |
-| `192.168.1.231 192.168.1.254 TCP 512` | **ATTACK** |
-| `192.168.1.76 192.168.1.1 TCP 52`   | **NORMAL** |
-
-*(These mimic patterns the model saw during training; use them during your demo.)*
-
-Type `q` to quit the live prompt.
 
 ---
 
