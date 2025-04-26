@@ -3,10 +3,10 @@
 .PHONY: capture attack defend pin-client
 
 capture-normal:
-	python src/capture/record.py 10 en0 normal
+	python src/capture/record.py 20 en0 normal
 
 capture-attack:
-	python src/capture/record.py 10 en0 attack
+	python src/capture/record.py 20 en0 attack
 
 attack:
 	@echo "[*] Launching Ettercap MITM attack..."

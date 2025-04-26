@@ -1,34 +1,47 @@
-# src/ai/build_dataset.py
-"""
-Parse .pcap files into JSONL dataset for AI training.
-"""
-
 import scapy.all as scapy
-import pathlib
 import json
 import sys
 
-def pcap_to_jsonl(pcap_path: str, label: str, out_file: str):
-    packets = scapy.rdpcap(pcap_path)
-    with open(out_file, "a") as f:
-        for pkt in packets:
-            features = {
-                "src": pkt[0][1].src if pkt.haslayer(1) else "unknown",
-                "dst": pkt[0][1].dst if pkt.haslayer(1) else "unknown",
-                "proto": pkt[0].name,
-                "len": len(pkt),
+def build_dataset(pcap_file, label, output_file):
+    packets = scapy.rdpcap(pcap_file)
+    print(f"Loaded {len(packets)} packets")
+
+    entries = []
+
+    for pkt in packets:
+        # Check if packet has IP layer
+        if pkt.haslayer(scapy.IP):
+            src_ip = pkt[scapy.IP].src
+            dst_ip = pkt[scapy.IP].dst
+
+            # Check if packet has TCP or UDP
+            if pkt.haslayer(scapy.TCP):
+                proto = "TCP"
+            elif pkt.haslayer(scapy.UDP):
+                proto = "UDP"
+            else:
+                proto = "IP"
+
+            length = len(pkt)
+
+            entry = {
+                "src": src_ip,
+                "dst": dst_ip,
+                "proto": proto,
+                "len": length,
                 "label": label
             }
-            f.write(json.dumps(features) + "\n")
+            entries.append(entry)
 
-def main():
-    if len(sys.argv) != 4:
-        print("Usage: python build_dataset.py <pcap_path> <label> <out_file>")
-        sys.exit(1)
+    # Write to output JSONL
+    with open(output_file, "w") as f:
+        for entry in entries:
+            f.write(json.dumps(entry) + "\n")
 
-    pcap_path, label, out_file = sys.argv[1:]
-    pcap_to_jsonl(pcap_path, label, out_file)
-    print(f"[+] Parsed {pcap_path} -> {out_file} (label={label})")
+    print(f"Wrote {len(entries)} entries to {output_file}")
 
 if __name__ == "__main__":
-    main()
+    pcap_file = sys.argv[1]
+    label = sys.argv[2]
+    output_file = sys.argv[3]
+    build_dataset(pcap_file, label, output_file)
