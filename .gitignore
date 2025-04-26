@@ -11,3 +11,4 @@ data/*.pcap
 .DS_Store
 .vscode/
 EOF
+models/
